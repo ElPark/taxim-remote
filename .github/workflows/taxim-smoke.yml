@@ -43,6 +43,7 @@ jobs:
           }
           function StopAll() {
             taskkill /F /IM rustdesk.exe 2>$null | Out-Null
+            taskkill /F /IM taximremote.exe 2>$null | Out-Null
             taskkill /F /IM taxim-remote.exe 2>$null | Out-Null
             taskkill /F /IM taxim-remote-qs-.exe 2>$null | Out-Null
             Start-Sleep 5
@@ -56,6 +57,7 @@ jobs:
             Shot "$mode-75s"
             Procs $mode
             Logs $mode
+            Get-ChildItem "$env:LOCALAPPDATA" -Directory | Where-Object { $_.Name -match 'rustdesk|taxim' } | ForEach-Object { $_.FullName; Get-ChildItem $_.FullName -Name } | Out-File "out/$mode.dir.txt"
             StopAll
           }
           Get-ChildItem out | Format-Table Name, Length
