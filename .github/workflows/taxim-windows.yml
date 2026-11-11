@@ -229,7 +229,10 @@ jobs:
           sed -i '/dpiAware/d' res/manifest.xml
           pushd ./libs/portable
           pip3 install -r requirements.txt
-          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/rustdesk.exe
+          # Taxim: own inner exe name, so the portable package unpacks into its own folder
+          # (LocalAppData/taximremote) instead of sharing the stock RustDesk one.
+          mv ../../rustdesk/rustdesk.exe ../../rustdesk/taximremote.exe
+          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/taximremote.exe
           popd
           mkdir -p ./SignOutput
           mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/taxim-remote-${{ env.VERSION }}-${{ matrix.job.arch }}.exe
