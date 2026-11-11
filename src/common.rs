@@ -2492,7 +2492,58 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
     ThrottledInterval::new(i)
 }
 
+// ---------------------------------------------------------------------------
+// Taxim Remote Support (택심 원격지원) — a modified build of RustDesk (AGPL-3.0).
+// Built-in settings: our own rendezvous/relay server, and "customer mode" for
+// the one-time support executable (file name contains "-qs-").
+// Source: https://github.com/ElPark/taxim-remote
+// ---------------------------------------------------------------------------
+const TAXIM_APP_NAME: &str = "TaximRemote";
+const TAXIM_SERVER: &str = "211.233.208.90";
+const TAXIM_SERVER_KEY: &str = "BxGh7BqT6PCCa21LR9OGfv7Tb10go+UxUPvTlC00aB4=";
+
+/// The customer (one-time support) executable is recognised by its file name.
+/// The portable packer passes the original file name through an env var.
+pub fn is_taxim_customer_exe() -> bool {
+    let mut exe = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.to_str().map(|s| s.to_owned()))
+        .unwrap_or_default();
+    if let Ok(portable_exe) = std::env::var(PORTABLE_APPNAME_RUNTIME_ENV_KEY) {
+        if !portable_exe.is_empty() {
+            exe = portable_exe;
+        }
+    }
+    let exe = exe.replace(92u8 as char, "/").to_lowercase();
+    let name = exe.rsplit('/').next().unwrap_or_default();
+    name.contains("-qs-") || name.contains("-qs.exe") || name.contains("_qs.exe")
+}
+
+fn load_taxim_builtin() {
+    *config::APP_NAME.write().unwrap() = TAXIM_APP_NAME.to_owned();
+    {
+        let mut settings = config::OVERWRITE_SETTINGS.write().unwrap();
+        settings.insert(
+            "custom-rendezvous-server".to_owned(),
+            TAXIM_SERVER.to_owned(),
+        );
+        settings.insert("relay-server".to_owned(), TAXIM_SERVER.to_owned());
+        settings.insert("key".to_owned(), TAXIM_SERVER_KEY.to_owned());
+        // A session starts only after the person at this PC clicks [Accept].
+        settings.insert("approve-mode".to_owned(), "click".to_owned());
+    }
+    if is_taxim_customer_exe() {
+        let mut hard = config::HARD_SETTINGS.write().unwrap();
+        hard.insert("conn-type".to_owned(), "incoming".to_owned());
+        hard.insert("disable-settings".to_owned(), "Y".to_owned());
+        hard.insert("disable-installation".to_owned(), "Y".to_owned());
+        hard.insert("disable-account".to_owned(), "Y".to_owned());
+        hard.insert("disable-ab".to_owned(), "Y".to_owned());
+    }
+}
+
 pub fn load_custom_client() {
+    load_taxim_builtin();
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());

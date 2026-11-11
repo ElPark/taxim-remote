@@ -79,19 +79,21 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     final isIncomingOnly = bind.isIncomingOnly();
     final isOutgoingOnly = bind.isOutgoingOnly();
     final children = <Widget>[
-      if (!isOutgoingOnly) buildPresetPasswordWarning(),
-      if (bind.isCustomClient())
+      if (isIncomingOnly) buildTaximCustomerPanel(context),
+      if (!isOutgoingOnly && !isIncomingOnly) buildPresetPasswordWarning(),
+      if (bind.isCustomClient() && !isIncomingOnly)
         Align(
           alignment: Alignment.center,
           child: loadPowered(context),
         ),
-      Align(
-        alignment: Alignment.center,
-        child: loadLogo(),
-      ),
-      buildTip(context),
-      if (!isOutgoingOnly) buildIDBoard(context),
-      if (!isOutgoingOnly) buildPasswordBoard(context),
+      if (!isIncomingOnly)
+        Align(
+          alignment: Alignment.center,
+          child: loadLogo(),
+        ),
+      if (!isIncomingOnly) buildTip(context),
+      if (!isOutgoingOnly && !isIncomingOnly) buildIDBoard(context),
+      if (!isOutgoingOnly && !isIncomingOnly) buildPasswordBoard(context),
       FutureBuilder<Widget>(
         future: Future.value(
             Obx(() => buildHelpCards(stateGlobal.updateUrl.value))),
@@ -182,6 +184,55 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: ConnectionPage(),
+    );
+  }
+
+  // Taxim: the customer (one-time support) window shows only what to do next.
+  Widget buildTaximCustomerPanel(BuildContext context) {
+    final model = gFFI.serverModel;
+    final textColor = Theme.of(context).textTheme.titleLarge?.color;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            kTaximDisplayName,
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: MyTheme.accent),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '상담원이 연결하면\n[수락] 버튼을 눌러 주세요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, height: 1.4, color: textColor),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '이 창은 닫지 말고 그대로 두세요.',
+            textAlign: TextAlign.center,
+            style:
+                TextStyle(fontSize: 13, color: textColor?.withOpacity(0.6)),
+          ),
+          const SizedBox(height: 14),
+          AnimatedBuilder(
+            animation: model.serverId,
+            builder: (_, __) => SelectableText(
+              '내 PC 번호  ${model.serverId.text}',
+              style:
+                  TextStyle(fontSize: 13, color: textColor?.withOpacity(0.6)),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'RustDesk 오픈소스 기반',
+            style:
+                TextStyle(fontSize: 11, color: textColor?.withOpacity(0.4)),
+          ),
+        ],
+      ),
     );
   }
 

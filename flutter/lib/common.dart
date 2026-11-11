@@ -3020,8 +3020,11 @@ int versionCmp(String v1, String v2) {
   return bind.versionToNumber(v: v1) - bind.versionToNumber(v: v2);
 }
 
+// Taxim: the name people see (window titles). The internal app name stays ASCII.
+const String kTaximDisplayName = '택심 원격지원';
+
 String getWindowName({WindowType? overrideType}) {
-  final name = bind.mainGetAppNameSync();
+  final name = kTaximDisplayName;
   switch (overrideType ?? kWindowType) {
     case WindowType.Main:
       return name;
