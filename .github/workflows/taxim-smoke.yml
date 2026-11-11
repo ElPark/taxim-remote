@@ -1,0 +1,70 @@
+name: Taxim smoke test (run the built exe, take screenshots)
+
+# Runs the published Windows build on a clean runner and uploads screenshots + logs,
+# so the UI can be checked without a local build machine.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - taxim-smoke
+
+permissions:
+  contents: write
+
+jobs:
+  smoke:
+    runs-on: windows-2022
+    steps:
+      - name: Run and capture
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $url = 'https://github.com/${{ github.repository }}/releases/download/taxim-latest/taxim-remote-1.5.1-x86_64.exe'
+          New-Item -ItemType Directory -Force out, run | Out-Null
+          Invoke-WebRequest $url -OutFile run/taxim-remote.exe
+          (Get-FileHash run/taxim-remote.exe -Algorithm SHA256).Hash | Out-File out/sha256.txt
+          Copy-Item run/taxim-remote.exe run/taxim-remote-qs-.exe
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          function Shot($name) {
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save("out/$name.png")
+          }
+          function Procs($name) {
+            Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'rustdesk|taxim' } |
+              ForEach-Object { '{0} ppid={1} ws={2}MB {3}' -f $_.ProcessId, $_.ParentProcessId, [int]($_.WorkingSetSize/1MB), $_.CommandLine } |
+              Out-File "out/$name.procs.txt"
+          }
+          function Logs($name) {
+            Get-ChildItem "$env:APPDATA\TaximRemote\log" -Recurse -File -ErrorAction SilentlyContinue |
+              ForEach-Object { "==== $($_.FullName)"; Get-Content $_.FullName -Tail 200 } | Out-File "out/$name.log.txt"
+          }
+          function StopAll() {
+            taskkill /F /IM rustdesk.exe 2>$null | Out-Null
+            taskkill /F /IM taxim-remote.exe 2>$null | Out-Null
+            taskkill /F /IM taxim-remote-qs-.exe 2>$null | Out-Null
+            Start-Sleep 5
+          }
+          foreach ($mode in @('staff', 'customer')) {
+            $exe = if ($mode -eq 'staff') { 'run\taxim-remote.exe' } else { 'run\taxim-remote-qs-.exe' }
+            Start-Process -FilePath $exe
+            Start-Sleep 30
+            Shot "$mode-30s"
+            Start-Sleep 45
+            Shot "$mode-75s"
+            Procs $mode
+            Logs $mode
+            StopAll
+          }
+          Get-ChildItem out | Format-Table Name, Length
+
+      - name: Publish results
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: true
+          tag_name: taxim-smoke
+          name: taxim-smoke
+          body: Screenshots and logs from running the latest Taxim Windows build on a clean GitHub runner.
+          files: out/*
