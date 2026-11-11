@@ -59,8 +59,10 @@ jobs:
             StopAll
           }
           Get-ChildItem out | Format-Table Name, Length
+          exit 0
 
       - name: Publish results
+        if: always()
         uses: softprops/action-gh-release@v1
         with:
           prerelease: true
